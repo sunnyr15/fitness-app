@@ -1,6 +1,6 @@
+import { Dumbbell, LayoutGrid, Plus, Users } from 'lucide-react-native';
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Plus, Dumbbell, LayoutGrid, Users } from 'lucide-react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function TrainerScreen() {
   return (

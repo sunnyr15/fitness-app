@@ -90,7 +90,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="trainer"
         options={{
-          // href: isTrainer ? "trainer" : null,
+          href: isTrainer ? "trainer" : null,
           title: "Trainer",
           tabBarIcon: ({ color }) => (
             <ClipboardEdit color={color} size={24} strokeWidth={2.5} />

@@ -1,9 +1,8 @@
-import { useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useFrameworkReady } from '@/hooks/useFrameworkReady';
-import { useAuth } from '@/hooks/useAuth';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 export default function RootLayout() {
   useFrameworkReady();
