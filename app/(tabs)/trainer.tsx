@@ -1,68 +1,92 @@
-import { Dumbbell, LayoutGrid, Plus, Users } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Dumbbell, LayoutGrid, Plus } from 'lucide-react-native';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function TrainerScreen() {
+  const router = useRouter();
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Trainer Dashboard</Text>
-        <Text style={styles.subtitle}>Manage your fitness content</Text>
-      </View>
-
-      <View style={styles.grid}>
-        <TouchableOpacity style={styles.card}>
-          <View style={[styles.iconContainer, { backgroundColor: '#E3F2FD' }]}>
-            <Dumbbell color="#1E88E5" size={24} />
-          </View>
-          <Text style={styles.cardTitle}>Create Exercise</Text>
-          <Text style={styles.cardDescription}>Add new exercises to your library</Text>
-          <View style={styles.addButton}>
-            <Plus color="#1E88E5" size={20} />
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.card}>
-          <View style={[styles.iconContainer, { backgroundColor: '#E8F5E9' }]}>
-            <LayoutGrid color="#43A047" size={24} />
-          </View>
-          <Text style={styles.cardTitle}>Create Workout</Text>
-          <Text style={styles.cardDescription}>Design new workout routines</Text>
-          <View style={styles.addButton}>
-            <Plus color="#1E88E5" size={20} />
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.card}>
-          <View style={[styles.iconContainer, { backgroundColor: '#FFF3E0' }]}>
-            <Users color="#F57C00" size={24} />
-          </View>
-          <Text style={styles.cardTitle}>Create Program</Text>
-          <Text style={styles.cardDescription}>Build comprehensive programs</Text>
-          <View style={styles.addButton}>
-            <Plus color="#1E88E5" size={20} />
-          </View>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.statsContainer}>
-        <Text style={styles.statsTitle}>Your Stats</Text>
-        <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>24</Text>
-            <Text style={styles.statLabel}>Exercises</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>12</Text>
-            <Text style={styles.statLabel}>Workouts</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>4</Text>
-            <Text style={styles.statLabel}>Programs</Text>
-          </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Trainer Dashboard</Text>
+          <Text style={styles.subtitle}>Manage your fitness content</Text>
         </View>
-      </View>
-    </ScrollView>
+
+        <View style={styles.grid}>
+          <TouchableOpacity 
+            style={styles.card}
+            onPress={() => router.push('/trainer/create-exercise')}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: '#E3F2FD' }]}>
+              <Dumbbell color="#1E88E5" size={24} />
+            </View>
+            <Text style={styles.cardTitle}>Create Exercise</Text>
+            <Text style={styles.cardDescription}>Add new exercises to your library</Text>
+            <View style={styles.addButton}>
+              <Plus color="#1E88E5" size={20} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => router.push('/trainer/edit-exercise' as any)}
+          >
+            <Text style={styles.buttonText}>Edit Exercise</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.card}
+            onPress={() => router.push('/trainer/create-workout')}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: '#E8F5E9' }]}>
+              <LayoutGrid color="#43A047" size={24} />
+            </View>
+            <Text style={styles.cardTitle}>Create Workout</Text>
+            <Text style={styles.cardDescription}>Design new workout routines</Text>
+            <View style={styles.addButton}>
+              <Plus color="#1E88E5" size={20} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => router.push('/trainer/edit-workout' as any)}
+          >
+            <Text style={styles.buttonText}>Edit Workout</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.card}
+            onPress={() => router.push('/trainer/announcement')}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: '#FFF3E0' }]}> 
+              <Text style={{ fontSize: 24 }}>📢</Text>
+            </View>
+            <Text style={styles.cardTitle}>Post Announcement</Text>
+            <Text style={styles.cardDescription}>Share a note with all users</Text>
+            <View style={styles.addButton}>
+              <Plus color="#1E88E5" size={20} />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={styles.quoteButton}
+          onPress={() => router.push({ pathname: '/trainer/quote' })}
+        >
+          <Text style={styles.quoteButtonText}>Change Home Quote</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.featuredButton}
+          onPress={() => router.push('/trainer/featured-workout')}
+        >
+          <Text style={styles.featuredButtonText}>Set Featured Workout</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -134,36 +158,52 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statsContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 32,
-  },
-  statsTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#2D3748',
-    marginBottom: 16,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#F7FAFC',
+  quoteButton: {
+    backgroundColor: '#1E88E5',
     borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 4,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
     alignItems: 'center',
+    marginHorizontal: 24,
+    marginBottom: 32,
+    marginTop: 8,
   },
-  statNumber: {
-    fontSize: 24,
+  quoteButtonText: {
+    color: '#FFF',
     fontWeight: '700',
-    color: '#2D3748',
-    marginBottom: 4,
+    fontSize: 17,
+    letterSpacing: 0.5,
   },
-  statLabel: {
-    fontSize: 14,
-    color: '#718096',
+  featuredButton: {
+    backgroundColor: '#43A047',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    marginHorizontal: 24,
+    marginBottom: 32,
+    marginTop: 8,
+  },
+  featuredButtonText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 17,
+    letterSpacing: 0.5,
+  },
+  button: {
+    backgroundColor: '#1E88E5',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    marginHorizontal: 24,
+    marginBottom: 32,
+    marginTop: 8,
+  },
+  buttonText: {
+    color: '#FFF',
+    fontWeight: '700',
+    fontSize: 17,
+    letterSpacing: 0.5,
   },
 });

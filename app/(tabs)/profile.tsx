@@ -1,19 +1,31 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Platform, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Mail, ChevronRight, CreditCard, CircleHelp as HelpCircle, LogOut, Camera, Pencil, Check, X, User } from 'lucide-react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { ChevronLeft, Settings, User } from 'lucide-react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Image, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, signOut, updateProfile } = useAuth();
+  const { user, signOut, updateProfile, session } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState(user?.user_metadata?.full_name || '');
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState(user?.user_metadata?.full_name || '');
+  const [editHometown, setEditHometown] = useState(user?.user_metadata?.hometown || '');
+  const [editBio, setEditBio] = useState(user?.user_metadata?.bio || '');
+  const [editAvatar, setEditAvatar] = useState(user?.user_metadata?.avatar_url || '');
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [editMobile, setEditMobile] = useState(user?.user_metadata?.mobile || '');
+  const [editUnits, setEditUnits] = useState(user?.user_metadata?.units || 'lbs');
+  const [editNotifications, setEditNotifications] = useState(user?.user_metadata?.notifications ?? true);
+  const [localUser, setLocalUser] = useState(user);
+  const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
   
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
   const avatarUrl = user?.user_metadata?.avatar_url;
@@ -22,6 +34,27 @@ export default function ProfileScreen() {
     await signOut();
     router.replace('/login');
   };
+
+  const fetchProfile = async () => {
+    const { data, error } = await supabase.auth.getUser();
+    if (!error && data?.user) {
+      setLocalUser(data.user as typeof user);
+    }
+  };
+
+  useEffect(() => {
+    setLocalUser(user);
+  }, [user]);
+
+  // Subscribe to auth state changes for real-time updates
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setLocalUser(session.user as typeof user);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleImagePick = async () => {
     try {
@@ -34,43 +67,33 @@ export default function ProfileScreen() {
 
       if (!result.canceled) {
         setIsLoading(true);
+        setIsUpdatingAvatar(true);
         setError(null);
-        
         const file = result.assets[0];
         const fileExt = file.uri.split('.').pop();
         const fileName = `${user?.id}/${Date.now()}.${fileExt}`;
         const filePath = `${fileName}`;
-
-        // Upload image
         const formData = new FormData();
         formData.append('file', {
           uri: file.uri,
           name: fileName,
           type: `image/${fileExt}`,
         } as any);
-
-        const { error: uploadError, data } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('profile_photos')
           .upload(filePath, formData);
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        // Get public URL
+        if (uploadError) throw uploadError;
         const { data: { publicUrl } } = supabase.storage
           .from('profile_photos')
           .getPublicUrl(filePath);
-
-        // Update user metadata
-        await updateProfile({
-          avatar_url: publicUrl,
-        });
+        await updateProfile({ avatar_url: publicUrl });
+        await fetchProfile();
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Error updating profile picture');
     } finally {
       setIsLoading(false);
+      setIsUpdatingAvatar(false);
     }
   };
 
@@ -95,135 +118,260 @@ export default function ProfileScreen() {
     }
   };
 
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await fetchProfile(); // or your user data fetch function
+    setRefreshing(false);
+  }, []);
+
+  const handleEditProfile = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await updateProfile({
+        full_name: editName.trim(),
+        hometown: editHometown.trim(),
+        bio: editBio.trim(),
+        avatar_url: editAvatar,
+      });
+      setEditModalVisible(false);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Error updating profile');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditImagePick = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled) {
+        setIsLoading(true);
+        setIsUpdatingAvatar(true);
+        setError(null);
+        const file = result.assets[0];
+        const fileExt = file.uri.split('.').pop();
+        const fileName = `${user?.id}/${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+        const formData = new FormData();
+        formData.append('file', {
+          uri: file.uri,
+          name: fileName,
+          type: `image/${fileExt}`,
+        } as any);
+        const { error: uploadError } = await supabase.storage
+          .from('profile_photos')
+          .upload(filePath, formData);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage
+          .from('profile_photos')
+          .getPublicUrl(filePath);
+        setEditAvatar(publicUrl);
+        await updateProfile({ avatar_url: publicUrl });
+        await fetchProfile();
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Error updating profile picture');
+    } finally {
+      setIsLoading(false);
+      setIsUpdatingAvatar(false);
+    }
+  };
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <View style={styles.profileSection}>
-          <TouchableOpacity 
-            style={styles.profileImageContainer} 
-            onPress={handleImagePick}
-            disabled={isLoading}
-          >
-            {avatarUrl ? (
-              <Image
-                source={{ uri: avatarUrl }}
-                style={styles.profileImage}
-              />
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} refreshControl={
+      <RefreshControl
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        colors={['#1E88E5']}
+        tintColor="#1E88E5"
+      />
+    }>
+      <View style={styles.profileRoot}>
+        <View style={styles.profileTop}>
+          <TouchableOpacity style={styles.profilePicContainer} onPress={handleEditImagePick}>
+            {isUpdatingAvatar ? (
+              <ActivityIndicator size="large" color="#1E88E5" />
+            ) : editAvatar || localUser?.user_metadata?.avatar_url ? (
+              <Image source={{ uri: editAvatar || localUser?.user_metadata?.avatar_url }} style={styles.profilePic} />
             ) : (
-              <View style={[styles.profileImage, styles.defaultAvatarContainer]}>
+              <View style={styles.profilePicPlaceholder}>
                 <User size={48} color="#94A3B8" strokeWidth={1.5} />
               </View>
             )}
-            <View style={styles.cameraIconContainer}>
-              <Camera size={16} color="#FFFFFF" />
-            </View>
           </TouchableOpacity>
-          
-          <View style={styles.profileInfo}>
-            <View style={styles.nameContainer}>
-              {isEditingName ? (
-                <View style={styles.nameEditContainer}>
-                  <TextInput
-                    ref={inputRef}
-                    style={styles.nameInput}
-                    value={newName}
-                    onChangeText={setNewName}
-                    placeholder="Enter your name"
-                    autoFocus
-                    selectTextOnFocus
-                    onSubmitEditing={handleNameSave}
-                  />
-                  <View style={styles.nameEditButtons}>
-                    <TouchableOpacity 
-                      onPress={handleNameSave}
-                      style={[styles.nameEditButton, styles.saveButton]}
-                      disabled={isLoading}
-                    >
-                      <Check size={16} color="#FFFFFF" />
+          <Text style={styles.profileName}>{displayName}</Text>
+          <View style={styles.profileBtnRow}>
+            <TouchableOpacity style={styles.editProfileBtn} onPress={() => {
+              setEditName(user?.user_metadata?.full_name || '');
+              setEditHometown(user?.user_metadata?.hometown || '');
+              setEditBio(user?.user_metadata?.bio || '');
+              setEditAvatar(user?.user_metadata?.avatar_url || '');
+              setEditModalVisible(true);
+            }}>
+              <Text style={styles.editProfileBtnText}>Edit Profile</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => {
-                        setIsEditingName(false);
-                        setNewName(user?.user_metadata?.full_name || '');
-                      }}
-                      style={[styles.nameEditButton, styles.cancelButton]}
-                      disabled={isLoading}
-                    >
-                      <X size={16} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <TouchableOpacity 
-                  style={styles.nameDisplay}
-                  onPress={() => setIsEditingName(true)}
-                  disabled={isLoading}
-                >
-                  <Text style={styles.name}>{displayName}</Text>
-                  <Pencil size={16} color="#718096" style={styles.editIcon} />
+            <TouchableOpacity style={styles.settingsBtn} onPress={() => setSettingsModalVisible(true)}>
+              <Settings color="#1E88E5" size={22} />
                 </TouchableOpacity>
-              )}
-            </View>
-            <View style={styles.emailContainer}>
-              <Mail size={16} color="#718096" />
-              <Text style={styles.email}>{user?.email}</Text>
-            </View>
           </View>
         </View>
-
-        {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-
-        {isLoading && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color="#1E88E5" />
-          </View>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Subscription</Text>
-        <View style={styles.subscriptionCard}>
-          <View style={styles.planInfo}>
-            <Text style={styles.planName}>Pro</Text>
-            <Text style={styles.planPrice}>$10/month</Text>
-          </View>
-          <Text style={styles.trialText}>7 days left in trial</Text>
-          <TouchableOpacity style={styles.manageButton}>
-            <Text style={styles.manageButtonText}>Manage Subscription</Text>
-            <ChevronRight size={20} color="#1E88E5" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        <TouchableOpacity style={styles.menuItem}>
-          <View style={styles.menuItemContent}>
-            <CreditCard size={20} color="#4A5568" />
-            <Text style={styles.menuItemText}>Payment Methods</Text>
-          </View>
-          <ChevronRight size={20} color="#CBD5E0" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem}>
-          <View style={styles.menuItemContent}>
-            <HelpCircle size={20} color="#4A5568" />
-            <Text style={styles.menuItemText}>Help & Support</Text>
-          </View>
-          <ChevronRight size={20} color="#CBD5E0" />
+        <View style={styles.profileSpacer} />
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
-
-      <TouchableOpacity 
-        style={styles.logoutButton}
-        onPress={handleLogout}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setEditModalVisible(false)}
       >
-        <LogOut size={20} color="#F56565" />
-        <Text style={styles.logoutText}>Sign Out</Text>
+        <View style={styles.editModalRoot}>
+          <View style={styles.editModalHeader}>
+            <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+              <Text style={styles.editModalCancel}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.editModalTitle}>Edit Profile</Text>
+            <TouchableOpacity onPress={handleEditProfile} disabled={isLoading}>
+              <Text style={[styles.editModalSave, isLoading && { opacity: 0.5 }]}>Save</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.editProfilePicContainer} onPress={handleEditImagePick}>
+            {editAvatar ? (
+              <Image source={{ uri: editAvatar }} style={styles.editProfilePic} />
+            ) : (
+              <View style={styles.editProfilePicPlaceholder}>
+                <User size={48} color="#94A3B8" strokeWidth={1.5} />
+              </View>
+            )}
+            <Text style={styles.editProfilePicText}>Edit</Text>
+          </TouchableOpacity>
+          <View style={styles.editFields}>
+            <Text style={styles.editLabel}>Name</Text>
+            <TextInput
+              style={styles.editInput}
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="Name"
+            />
+            <Text style={styles.editLabel}>Hometown</Text>
+            <TextInput
+              style={styles.editInput}
+              value={editHometown}
+              onChangeText={setEditHometown}
+              placeholder="City, State"
+            />
+            <Text style={styles.editLabel}>Bio</Text>
+            <TextInput
+              style={[styles.editInput, styles.editBioInput]}
+              value={editBio}
+              onChangeText={setEditBio}
+              placeholder="150 characters"
+              maxLength={150}
+              multiline
+            />
+          </View>
+          {error && <Text style={styles.errorText}>{error}</Text>}
+          {isLoading && <ActivityIndicator color="#1E88E5" style={{ marginTop: 16 }} />}
+        </View>
+      </Modal>
+      <Modal
+        visible={settingsModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setSettingsModalVisible(false)}
+      >
+        <View style={styles.settingsModalRoot}>
+          <View style={styles.settingsHeader}>
+            <TouchableOpacity onPress={() => setSettingsModalVisible(false)} hitSlop={12}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <ChevronLeft size={28} color="#1E88E5" strokeWidth={2} />
+                <Text style={{ color: '#1E88E5', fontWeight: '400', fontSize: 17, marginLeft: 2 }}>Back</Text>
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.settingsTitle}>Settings</Text>
+            <View style={{ width: 60 }} />
+          </View>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 32 }}>
+            <View style={styles.settingsSection}>
+              <Text style={styles.settingsLabel}>Email</Text>
+              <View style={styles.settingsRowDisabled}>
+                <Text style={styles.settingsValue}>{user?.email}</Text>
+              </View>
+              <Text style={styles.settingsLabel}>Mobile Number</Text>
+              <TouchableOpacity style={styles.settingsRow} activeOpacity={1}>
+                <TextInput
+                  style={styles.settingsInput}
+                  value={editMobile}
+                  onChangeText={setEditMobile}
+                  placeholder="Enter mobile number"
+                  keyboardType="phone-pad"
+                  maxLength={20}
+                />
+        </TouchableOpacity>
+              <Text style={styles.settingsLabel}>Notification Preferences</Text>
+              <TouchableOpacity style={styles.settingsRow} activeOpacity={1}>
+                <Text style={styles.settingsValue}>Notifications</Text>
+                <TouchableOpacity
+                  style={styles.settingsSwitch}
+                  onPress={() => setEditNotifications(!editNotifications)}
+                >
+                  <View style={[styles.switchTrack, editNotifications && styles.switchTrackActive]}>
+                    <View style={[styles.switchThumb, editNotifications && styles.switchThumbActive]} />
+      </View>
+                </TouchableOpacity>
+              </TouchableOpacity>
+              <Text style={styles.settingsLabel}>Units of Measure</Text>
+              <View style={styles.settingsRow}>
+                <TouchableOpacity
+                  style={[styles.unitsBtn, editUnits === 'lbs' && styles.unitsBtnActive]}
+                  onPress={() => setEditUnits('lbs')}
+                >
+                  <Text style={[styles.unitsBtnText, editUnits === 'lbs' && styles.unitsBtnTextActive]}>lbs</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.unitsBtn, editUnits === 'kg' && styles.unitsBtnActive]}
+                  onPress={() => setEditUnits('kg')}
+                >
+                  <Text style={[styles.unitsBtnText, editUnits === 'kg' && styles.unitsBtnTextActive]}>kg</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.unitsBtn, editUnits === 'miles' && styles.unitsBtnActive]}
+                  onPress={() => setEditUnits('miles')}
+                >
+                  <Text style={[styles.unitsBtnText, editUnits === 'miles' && styles.unitsBtnTextActive]}>miles</Text>
+                </TouchableOpacity>
+      <TouchableOpacity 
+                  style={[styles.unitsBtn, editUnits === 'km' && styles.unitsBtnActive]}
+                  onPress={() => setEditUnits('km')}
+                >
+                  <Text style={[styles.unitsBtnText, editUnits === 'km' && styles.unitsBtnTextActive]}>km</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <View style={styles.settingsSection}>
+              <TouchableOpacity style={styles.settingsRow} onPress={() => {/* open privacy policy */}}>
+                <Text style={styles.settingsValue}>Privacy Policy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.settingsRow} onPress={() => {/* open terms of use */}}>
+                <Text style={styles.settingsValue}>Terms of Use</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.settingsRow} onPress={() => {/* open delete account */}}>
+                <Text style={[styles.settingsValue, { color: '#E53E3E' }]}>Delete Account</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.settingsRow} onPress={handleLogout}>
+                <Text style={[styles.settingsValue, { color: '#F56565' }]}>Log Out</Text>
       </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -233,195 +381,285 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 24,
-    backgroundColor: '#F7FAFC',
+  profileRoot: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'space-between',
   },
-  profileSection: {
-    flexDirection: 'row',
+  profileTop: {
     alignItems: 'center',
+    marginTop: 60,
   },
-  profileImageContainer: {
-    position: 'relative',
-    marginRight: 16,
+  profilePicContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#F7FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    overflow: 'hidden',
   },
-  profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  profilePic: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
   },
-  defaultAvatarContainer: {
+  profilePicPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: '#EDF2F7',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
-  cameraIconContainer: {
-    position: 'absolute',
-    right: -4,
-    bottom: -4,
-    backgroundColor: '#1E88E5',
-    borderRadius: 12,
-    padding: 6,
+  profileName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#2D3748',
+    marginBottom: 12,
+  },
+  profileBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  editProfileBtn: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#1E88E5',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderRadius: 24,
+    height: 44,
+    minWidth: 140,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
-  profileInfo: {
+  editProfileBtnText: {
+    color: '#1E88E5',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  profileSpacer: {
     flex: 1,
   },
-  nameContainer: {
-    marginBottom: 4,
-  },
-  nameDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginRight: 8,
-  },
-  editIcon: {
-    opacity: 0.6,
-  },
-  nameEditContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  nameInput: {
-    flex: 1,
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2D3748',
-    padding: Platform.OS === 'web' ? 8 : 0,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  nameEditButtons: {
-    flexDirection: 'row',
-  },
-  nameEditButton: {
-    padding: 8,
-    borderRadius: 8,
-    marginLeft: 4,
-  },
-  saveButton: {
-    backgroundColor: '#48BB78',
-  },
-  cancelButton: {
-    backgroundColor: '#F56565',
-  },
-  emailContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  email: {
-    fontSize: 14,
-    color: '#718096',
-    marginLeft: 6,
-  },
-  errorContainer: {
-    marginTop: 16,
-    padding: 12,
+  logoutButton: {
     backgroundColor: '#FFF5F5',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    margin: 24,
+  },
+  logoutText: {
+    color: '#F56565',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  editModalRoot: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    paddingTop: 60,
+    paddingHorizontal: 24,
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 32,
+  },
+  editModalCancel: {
+    color: '#718096',
+    fontSize: 18,
+  },
+  editModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2D3748',
+  },
+  editModalSave: {
+    color: '#1E88E5',
+    fontWeight: '700',
+    fontSize: 18,
+  },
+  editProfilePicContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  editProfilePic: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 8,
+  },
+  editProfilePicPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#EDF2F7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  editProfilePicText: {
+    color: '#718096',
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  editFields: {
+    marginBottom: 24,
+  },
+  editLabel: {
+    fontSize: 14,
+    color: '#4A5568',
+    marginBottom: 4,
+    marginTop: 12,
+  },
+  editInput: {
+    backgroundColor: '#F7FAFC',
     borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#2D3748',
+    marginBottom: 8,
+  },
+  editBioInput: {
+    minHeight: 60,
+    textAlignVertical: 'top',
   },
   errorText: {
     color: '#E53E3E',
     fontSize: 14,
     textAlign: 'center',
+    marginTop: 8,
   },
-  loadingContainer: {
-    marginTop: 16,
+  settingsBtn: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#1E88E5',
+    borderWidth: 2,
+    borderRadius: 24,
+    height: 44,
+    width: 44,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  section: {
+  settingsModalRoot: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    paddingTop: 60,
+    paddingHorizontal: 0,
+  },
+  settingsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingTop: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#2D3748',
     marginBottom: 16,
   },
-  subscriptionCard: {
-    backgroundColor: '#F7FAFC',
+  settingsTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2D3748',
+    textAlign: 'center',
+  },
+  settingsSection: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 24,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
   },
-  planInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+  settingsLabel: {
+    fontSize: 13,
+    color: '#718096',
+    marginLeft: 8,
+    marginTop: 8,
+    marginBottom: 2,
   },
-  planName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#2D3748',
-  },
-  planPrice: {
-    fontSize: 16,
-    color: '#4A5568',
-  },
-  trialText: {
-    fontSize: 14,
-    color: '#F6AD55',
-    marginBottom: 16,
-  },
-  manageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#EBF8FF',
-    padding: 12,
-    borderRadius: 8,
-  },
-  manageButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E88E5',
-  },
-  menuItem: {
+  settingsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 16,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDF2F7',
+    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#F7FAFC',
+    borderRadius: 12,
+    marginBottom: 4,
   },
-  menuItemContent: {
+  settingsRowDisabled: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    backgroundColor: '#F7FAFC',
+    borderRadius: 12,
+    marginBottom: 4,
   },
-  menuItemText: {
+  settingsValue: {
     fontSize: 16,
-    color: '#4A5568',
+    color: '#2D3748',
+  },
+  settingsInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#2D3748',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    padding: 0,
+  },
+  settingsSwitch: {
     marginLeft: 12,
   },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 32,
-    marginBottom: 40,
-    marginHorizontal: 24,
-    padding: 16,
-    backgroundColor: '#FFF5F5',
+  switchTrack: {
+    width: 40,
+    height: 24,
     borderRadius: 12,
+    backgroundColor: '#CBD5E1',
+    justifyContent: 'center',
+    padding: 2,
   },
-  logoutText: {
-    marginLeft: 8,
-    fontSize: 16,
+  switchTrackActive: {
+    backgroundColor: '#1E88E5',
+  },
+  switchThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+    marginLeft: 0,
+  },
+  switchThumbActive: {
+    marginLeft: 16,
+  },
+  unitsBtn: {
+    backgroundColor: '#F7FAFC',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  unitsBtnActive: {
+    backgroundColor: '#1E88E5',
+    borderColor: '#1E88E5',
+  },
+  unitsBtnText: {
+    color: '#2D3748',
     fontWeight: '600',
-    color: '#F56565',
+    fontSize: 15,
+  },
+  unitsBtnTextActive: {
+    color: '#FFFFFF',
   },
 });

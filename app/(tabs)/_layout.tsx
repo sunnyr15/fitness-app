@@ -1,12 +1,11 @@
 import { useAuth } from "@/hooks/useAuth";
+import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs } from "expo-router";
 import {
   Clipboard as ClipboardEdit,
   Dumbbell,
-  Heart,
   Chrome as Home,
-  LayoutGrid as Layout,
-  User,
+  User
 } from "lucide-react-native";
 import React from "react";
 import { Platform } from "react-native";
@@ -67,6 +66,7 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/*
       <Tabs.Screen
         name="programs"
         options={{
@@ -76,13 +76,14 @@ export default function TabLayout() {
           ),
         }}
       />
+      */}
 
       <Tabs.Screen
-        name="favorites"
+        name="activity"
         options={{
-          title: "Favorites",
+          title: "Activity",
           tabBarIcon: ({ color }) => (
-            <Heart color={color} size={24} strokeWidth={2.5} />
+            <MaterialIcons name="bar-chart" color={color} size={24} />
           ),
         }}
       />

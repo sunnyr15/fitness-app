@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { Clock, Calendar as CalendarIcon, ChevronRight } from 'lucide-react-native';
+import { Calendar as CalendarIcon, ChevronRight, Clock } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ProgramsScreen() {
   const programs = [
@@ -29,6 +29,14 @@ export default function ProgramsScreen() {
       image: "https://images.pexels.com/photos/4498604/pexels-photo-4498604.jpeg",
     },
   ];
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await fetchPrograms(); // or your data fetch function
+    setRefreshing(false);
+  }, []);
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
