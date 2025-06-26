@@ -1,21 +1,21 @@
-import { supabase } from '@/lib/supabase';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { supabase } from "@/lib/supabase";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useVideoPlayer, VideoView } from "expo-video";
+import React, { useEffect, useState } from "react";
+
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function WorkoutsScreen() {
-  const [tab, setTab] = useState<'workouts' | 'exercises'>('workouts');
+  const [tab, setTab] = useState<"workouts" | "exercises">("workouts");
   const [workouts, setWorkouts] = useState<any[]>([]);
   const [exercises, setExercises] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,18 +38,18 @@ export default function WorkoutsScreen() {
     setLoading(true);
     try {
       const { data: workoutData, error: workoutError } = await supabase
-        .from('workouts')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("workouts")
+        .select("*")
+        .order("created_at", { ascending: false });
       const { data: exerciseData, error: exerciseError } = await supabase
-        .from('exercises')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("exercises")
+        .select("*")
+        .order("created_at", { ascending: false });
       if (workoutError || exerciseError) throw workoutError || exerciseError;
       setWorkouts(workoutData || []);
       setExercises(exerciseData || []);
     } catch (err) {
-      setError('Error loading data');
+      setError("Error loading data");
     } finally {
       setLoading(false);
     }
@@ -68,44 +68,67 @@ export default function WorkoutsScreen() {
       </View>
     );
   }
-
   return (
     <SafeAreaView style={styles.safeArea}>
-    <View style={styles.container}>
+      <View style={styles.container}>
         {/* Custom Tab Bar */}
         <View style={styles.tabBar}>
           <TouchableOpacity
-            style={[styles.tabButton, tab === 'workouts' && styles.activeTab]}
-            onPress={() => setTab('workouts')}
+            style={[styles.tabButton, tab === "workouts" && styles.activeTab]}
+            onPress={() => setTab("workouts")}
           >
-            <Text style={[styles.tabText, tab === 'workouts' && styles.activeTabText]}>Workouts</Text>
+            <Text
+              style={[
+                styles.tabText,
+                tab === "workouts" && styles.activeTabText,
+              ]}
+            >
+              Workouts
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tabButton, tab === 'exercises' && styles.activeTab]}
-            onPress={() => setTab('exercises')}
+            style={[styles.tabButton, tab === "exercises" && styles.activeTab]}
+            onPress={() => setTab("exercises")}
           >
-            <Text style={[styles.tabText, tab === 'exercises' && styles.activeTabText]}>Exercises</Text>
+            <Text
+              style={[
+                styles.tabText,
+                tab === "exercises" && styles.activeTabText,
+              ]}
+            >
+              Exercises
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Tab Content */}
-        {tab === 'workouts' ? (
+        {tab === "workouts" ? (
           <FlatList
             data={workouts}
-            keyExtractor={item => item.id}
+            keyExtractor={(item) => item.id}
             contentContainerStyle={{ paddingBottom: 32 }}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                colors={['#1E88E5']}
+                colors={["#1E88E5"]}
                 tintColor="#1E88E5"
               />
             }
             renderItem={({ item }) => (
-              <TouchableOpacity style={styles.workoutCard} onPress={() => router.push({ pathname: '/workout/[id]', params: { id: item.id } })}>
+              <TouchableOpacity
+                style={styles.workoutCard}
+                onPress={() =>
+                  router.push({
+                    pathname: "/workout/[id]",
+                    params: { id: item.id },
+                  })
+                }
+              >
                 <Text style={styles.workoutName}>{item.name}</Text>
-                <Text style={styles.workoutDescription}>{item.description}</Text>
+                <Text style={styles.workoutDescription}>
+                  {item.description}
+                </Text>
                 {item.tags && (
                   <View style={styles.tagRow}>
                     {item.tags.map((tag: string) => (
@@ -121,45 +144,38 @@ export default function WorkoutsScreen() {
         ) : (
           <FlatList
             data={exercises}
-            keyExtractor={item => item.id}
+            keyExtractor={(item) => item.id}
             contentContainerStyle={{ paddingBottom: 32 }}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                colors={['#1E88E5']}
+                colors={["#1E88E5"]}
                 tintColor="#1E88E5"
               />
             }
             renderItem={({ item }) => (
-              <TouchableOpacity style={styles.exerciseCard} onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: item.id } })}>
-                {item.media_type === 'video' ? (
-                  <WebView
-                    source={{
-                      html: `
-                        <video 
-                          src='${item.media_url}' 
-                          controls 
-                          style='width:100%;height:100%;object-fit:cover;'
-                          poster='${item.thumbnail_url || ''}'
-                        ></video>
-                      `
-                    }}
-                    style={styles.exerciseImage}
-                    allowsInlineMediaPlayback
-                    mediaPlaybackRequiresUserAction={false}
-                  />
-                ) : (
-                  <Image
-                    source={{ uri: item.media_url }}
-                    style={styles.exerciseImage}
-                  />
-                )}
+              <TouchableOpacity
+                style={styles.exerciseCard}
+                onPress={() =>
+                  router.push({
+                    pathname: "/exercise/[id]",
+                    params: { id: item.id },
+                  })
+                }
+              >
+                {item.media_type === "video" ? (
+                  <VideoPlayerWrapper uri={item.media_url} />
+                ) : null}
                 <View style={styles.exerciseContent}>
                   <Text style={styles.exerciseName}>{item.name}</Text>
                   <View style={styles.exerciseMeta}>
-                    <Text style={styles.exerciseEquipment}>{item.equipment}</Text>
-                    <Text style={styles.exerciseDifficulty}>{item.difficulty}</Text>
+                    <Text style={styles.exerciseEquipment}>
+                      {item.equipment}
+                    </Text>
+                    <Text style={styles.exerciseDifficulty}>
+                      {item.difficulty}
+                    </Text>
                   </View>
                   <View style={styles.muscleGroupsContainer}>
                     {(item.muscle_groups || []).map((muscle: string) => (
@@ -168,7 +184,7 @@ export default function WorkoutsScreen() {
                       </View>
                     ))}
                   </View>
-      </View>
+                </View>
               </TouchableOpacity>
             )}
           />
@@ -177,55 +193,66 @@ export default function WorkoutsScreen() {
     </SafeAreaView>
   );
 }
+const VideoPlayerWrapper = ({ uri }: { uri: string }) => {
+  const player = useVideoPlayer(uri, (player) => {});
 
+  return (
+    <VideoView
+      player={player}
+      allowsFullscreen
+      allowsPictureInPicture
+      style={{ width: "100%", height: 200 }} // adjust as needed
+    />
+  );
+};
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   tabBar: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 24,
     marginBottom: 16,
-    backgroundColor: '#F7FAFC',
+    backgroundColor: "#F7FAFC",
     borderRadius: 12,
     marginHorizontal: 24,
   },
   tabButton: {
     flex: 1,
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 12,
   },
   activeTab: {
-    backgroundColor: '#1E88E5',
+    backgroundColor: "#1E88E5",
   },
   tabText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#718096',
+    fontWeight: "600",
+    color: "#718096",
   },
   activeTabText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
   },
   workoutCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 20,
     marginHorizontal: 24,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -233,22 +260,22 @@ const styles = StyleSheet.create({
   },
   workoutName: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#2D3748',
+    fontWeight: "700",
+    color: "#2D3748",
     marginBottom: 8,
   },
   workoutDescription: {
     fontSize: 14,
-    color: '#718096',
+    color: "#718096",
     marginBottom: 8,
   },
   tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   tagPill: {
-    backgroundColor: '#EBF8FF',
+    backgroundColor: "#EBF8FF",
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
@@ -257,13 +284,13 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 12,
-    color: '#1E88E5',
+    color: "#1E88E5",
   },
   exerciseCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -272,7 +299,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   exerciseImage: {
-    width: '100%',
+    width: "100%",
     height: 200,
   },
   exerciseContent: {
@@ -280,44 +307,44 @@ const styles = StyleSheet.create({
   },
   exerciseName: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#2D3748',
+    fontWeight: "600",
+    color: "#2D3748",
     marginBottom: 8,
   },
   exerciseMeta: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginBottom: 12,
   },
   exerciseEquipment: {
     fontSize: 14,
-    color: '#718096',
-    backgroundColor: '#F7FAFC',
+    color: "#718096",
+    backgroundColor: "#F7FAFC",
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   exerciseDifficulty: {
     fontSize: 14,
-    color: '#718096',
-    backgroundColor: '#F7FAFC',
+    color: "#718096",
+    backgroundColor: "#F7FAFC",
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   muscleGroupsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   muscleGroupPill: {
-    backgroundColor: '#EBF8FF',
+    backgroundColor: "#EBF8FF",
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   muscleGroupText: {
     fontSize: 12,
-    color: '#1E88E5',
+    color: "#1E88E5",
   },
 });
